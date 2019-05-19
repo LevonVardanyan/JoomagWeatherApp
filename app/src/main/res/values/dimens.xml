@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="weather_item_height">200dp</dimen>
+    <dimen name="action_bar_elevation">4dp</dimen>
+    <dimen name="search_view_margin">16dp</dimen>
+    <dimen name="remove_mode_btn_size">48dp</dimen>
+</resources>

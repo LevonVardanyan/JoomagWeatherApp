@@ -1,10 +1,5 @@
 package com.joomag.test.callback;
 
-import android.util.Log;
-
-
-import com.joomag.test.datasource.remote.ErrorUtils;
-
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -21,9 +16,6 @@ public class RetrofitSimpleCallback<T> implements Callback<T> {
         if (requestCallback != null) {
             if (response.isSuccessful()) {
                 requestCallback.onSuccess(response.body());
-            } else {
-                Log.e("Failed request", response.raw().request().url().toString());
-                requestCallback.onFail(ErrorUtils.parseError(response).getError());
             }
         }
     }

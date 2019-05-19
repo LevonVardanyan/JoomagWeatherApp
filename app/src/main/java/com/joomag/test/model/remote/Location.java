@@ -97,7 +97,8 @@ public class Location {
         } else if (obj instanceof Location) {
             Location location = (Location) obj;
             return location.getCountry().equals(country) && location.getTzId().equals(tzId) &&
-                    location.getLat().equals(lat) && location.getLon().equals(lon) && location.getRegion().equals(region);
+                    location.getLat().equals(lat) && location.getLon().equals(lon) &&
+                    location.getRegion().equals(region) && location.getName().equals(name);
         }
         return super.equals(obj);
     }

@@ -11,38 +11,35 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.core.view.ViewCompat;
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProviders;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.fragment.FragmentNavigator;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.joomag.test.R;
-import com.joomag.test.WeatherViewModelFactory;
+import com.joomag.test.WeatherApplication;
 import com.joomag.test.callback.WeatherItemTouchCallback;
 import com.joomag.test.databinding.HomeFragmentBinding;
+import com.joomag.test.di.AppComponent;
+import com.joomag.test.di.FragmentScoped;
 import com.joomag.test.model.remote.SearchItem;
-import com.joomag.test.model.remote.Weather;
-import com.joomag.test.util.Constants;
 
-import java.util.Objects;
+import javax.inject.Inject;
 
+@FragmentScoped
 public class HomeFragment extends Fragment implements SearchView.OnQueryTextListener,
-        SearchAdapter.OnItemClickListener, WeatherItemTouchCallback.WeatherItemTouchListener,
-        WeathersAdapter.OnItemClickListener, View.OnClickListener {
+        SearchAdapter.OnItemClickListener, WeatherItemTouchCallback.WeatherItemTouchListener, View.OnClickListener {
 
     private HomeFragmentBinding binding;
     private HomeViewModel homeViewModel;
+    @Inject
+    SearchAdapter searchAdapter;
+    @Inject
+    WeathersAdapter weathersAdapter;
 
-    private SearchAdapter searchAdapter;
-    private WeathersAdapter weathersAdapter;
-
-    private NavController navController;
+    public HomeFragment() {
+    }
 
     @Nullable
     @Override
@@ -55,8 +52,15 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        navController = Navigation.findNavController(getActivity(), R.id.main_nav_host);
-        homeViewModel = obtainViewModel(this);
+        if (getActivity() == null) {
+            return;
+        }
+        HomeComponent homeComponent = DaggerHomeComponent.builder().application(getActivity().getApplication())
+                .appComponent(((WeatherApplication) getActivity().getApplication()).getAppComponent()).build();
+        AppComponent appComponent = ((WeatherApplication) getActivity().getApplication()).getAppComponent();
+        homeComponent.inject(this);
+        homeViewModel = ViewModelProviders.of(this, appComponent.getWeatherViewModelFactory()).get(HomeViewModel.class);
+
         binding.setIsSearching(homeViewModel.getIsProgressShowing());
         binding.setShowMessageView(homeViewModel.getIsShowMessageView());
         setHasOptionsMenu(true);
@@ -68,6 +72,7 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
         setupObservers();
     }
 
+
     private void init() {
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         binding.search.setIconified(false);
@@ -78,15 +83,10 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
         binding.search.setMaxWidth(screenWidth - 2 * getResources().getDimensionPixelSize(R.dimen.search_view_margin)
                 - getResources().getDimensionPixelSize(R.dimen.remove_mode_btn_size));
 
-        binding.swipeRefresh.setOnRefreshListener(() -> {
-            homeViewModel.refreshSavedWeathers();
-        });
+        binding.swipeRefresh.setOnRefreshListener(() -> homeViewModel.refreshSavedWeathers());
     }
 
     private void initSearchAdapter() {
-        if (searchAdapter == null) {
-            searchAdapter = new SearchAdapter();
-        }
         searchAdapter.setOnItemClickListener(this);
         binding.searchRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
         binding.searchRecyclerView.setAdapter(searchAdapter);
@@ -98,18 +98,12 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
     }
 
     private void initWeathersAdapter() {
-        if (weathersAdapter == null) {
-            weathersAdapter = new WeathersAdapter();
-        }
-        weathersAdapter.setOnItemClickListener(this);
+        binding.weathersRecyclerView.setAdapter(weathersAdapter);
         binding.weathersRecyclerView.setHasFixedSize(true);
         binding.weathersRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
-        binding.weathersRecyclerView.setAdapter(weathersAdapter);
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new WeatherItemTouchCallback(this));
         itemTouchHelper.attachToRecyclerView(binding.weathersRecyclerView);
-        homeViewModel.getSavedWeathers().observe(getViewLifecycleOwner(), weathers -> {
-            weathersAdapter.setItems(weathers);
-        });
+        homeViewModel.getSavedWeathers().observe(getViewLifecycleOwner(), weathers -> weathersAdapter.setItems(weathers));
     }
 
     private void setupObservers() {
@@ -117,34 +111,28 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
             binding.searchRecyclerView.setVisibility(isEmptyQuery ? View.GONE : View.VISIBLE);
             binding.swipeRefresh.setVisibility(isEmptyQuery ? View.VISIBLE : View.GONE);
         });
-        homeViewModel.getMessageLiveData().observe(getViewLifecycleOwner(), message -> {
-            binding.message.setText(message);
+        homeViewModel.getMessageLiveData().observe(getViewLifecycleOwner(), message -> binding.message.setText(message));
+        homeViewModel.getSavedWeathersCountLiveData().observe(getViewLifecycleOwner(), savedWeathersCount ->
+                homeViewModel.showMessage(savedWeathersCount == 0, getString(R.string.no_saved_locations)));
+        homeViewModel.getIsRefreshing().observe(getViewLifecycleOwner(), isRefreshing ->
+                binding.swipeRefresh.setRefreshing(isRefreshing));
+        homeViewModel.getItemAdded().observe(getViewLifecycleOwner(), itemAdded -> {
+            if (itemAdded) {
+                binding.weathersRecyclerView.smoothScrollToPosition(0);
+            }
         });
-        homeViewModel.getSavedWeathersCountLiveData().observe(getViewLifecycleOwner(), savedWeathersCount -> {
-            homeViewModel.showMessage(savedWeathersCount == 0, getString(R.string.no_saved_locations));
-        });
-        homeViewModel.getIsRefreshing().observe(getViewLifecycleOwner(), isRefreshing -> {
-            binding.swipeRefresh.setRefreshing(isRefreshing);
-        });
-        homeViewModel.getItemAdded().observe(getViewLifecycleOwner(), aBoolean ->
-                binding.weathersRecyclerView.smoothScrollToPosition(0));
     }
 
     private void initActionBar() {
-        ((AppCompatActivity) getActivity()).setSupportActionBar(binding.toolbar);
-        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayShowTitleEnabled(false);
-
+        if (getActivity() != null) {
+            AppCompatActivity appCompatActivity = (AppCompatActivity) getActivity();
+            appCompatActivity.setSupportActionBar(binding.toolbar);
+            ActionBar actionBar = appCompatActivity.getSupportActionBar();
+            if (actionBar != null) {
+                actionBar.setDisplayShowTitleEnabled(false);
+            }
         }
     }
-
-    private HomeViewModel obtainViewModel(Fragment fragment) {
-        WeatherViewModelFactory factory = WeatherViewModelFactory.getInstance(
-                Objects.requireNonNull(fragment.getActivity()).getApplication());
-        return ViewModelProviders.of(fragment, factory).get(HomeViewModel.class);
-    }
-
 
     @Override
     public boolean onQueryTextSubmit(String query) {
@@ -161,6 +149,7 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
     @Override
     public void onSearchItemClick(SearchItem searchItem) {
         binding.search.setQuery("", true);
+        binding.search.clearFocus();
         homeViewModel.requestWeatherAndSave(searchItem);
     }
 
@@ -172,17 +161,6 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
     @Override
     public void onMove(int from, int to) {
         homeViewModel.swapItems(weathersAdapter.getItem(from).getId(), weathersAdapter.getItem(to).getId());
-    }
-
-    @Override
-    public void onWeatherItemClick(Weather weather, View sharedView) {
-        FragmentNavigator.Extras extras = new FragmentNavigator.Extras.Builder()
-                .addSharedElement(sharedView, ViewCompat.getTransitionName(sharedView))
-                .build();
-        Bundle bundle = new Bundle();
-        bundle.putString(Constants.EXTRA_WEATHER_LOCATION_NAME, weather.getLocation().getName());
-        bundle.putString(Constants.EXTRA_TRANSITION_NAME, ViewCompat.getTransitionName(sharedView));
-        navController.navigate(R.id.action_homeFragment_to_weatherDetailsFragment, bundle, null, extras);
     }
 
     @Override

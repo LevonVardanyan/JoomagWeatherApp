@@ -2,7 +2,6 @@ package com.joomag.test.datasource.remote;
 
 
 import com.joomag.test.callback.RequestCallback;
-import com.joomag.test.model.remote.Forecast;
 import com.joomag.test.model.remote.SearchItem;
 import com.joomag.test.model.remote.Weather;
 
@@ -15,7 +14,5 @@ public interface RemoteDataSource {
     void requestWeather(String query, RequestCallback<Weather> requestCallback);
 
     Weather requestWeather(String query);
-
-    void requestForecast(String query, int daysCount, RequestCallback<Forecast> requestCallback);
 
 }

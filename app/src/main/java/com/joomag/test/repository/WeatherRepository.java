@@ -11,29 +11,22 @@ import com.joomag.test.util.SimpleExecutor;
 
 import java.util.List;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 public class WeatherRepository {
 
-    private static WeatherRepository weatherRepository;
     private RemoteDataSource remoteDataSource;
     private LocalDataSource localDataSource;
 
     private SimpleExecutor simpleExecutor;
 
-    static WeatherRepository getInstance(RemoteDataSource remoteDataSource, LocalDataSource localDataSource) {
-        if (weatherRepository == null) {
-            synchronized (WeatherRepository.class) {
-                if (weatherRepository == null) {
-                    weatherRepository = new WeatherRepository(remoteDataSource, localDataSource);
-                }
-            }
-        }
-        return weatherRepository;
-    }
-
-    private WeatherRepository(RemoteDataSource remoteDataSource, LocalDataSource localDataSource) {
+    @Inject
+    WeatherRepository(RemoteDataSource remoteDataSource, LocalDataSource localDataSource, SimpleExecutor simpleExecutor) {
         this.localDataSource = localDataSource;
         this.remoteDataSource = remoteDataSource;
-        this.simpleExecutor = SimpleExecutor.getInstance();
+        this.simpleExecutor = simpleExecutor;
     }
 
     public void search(String query, RequestCallback<List<SearchItem>> callbackWithResponse) {
@@ -55,21 +48,16 @@ public class WeatherRepository {
     }
 
     public void requestWeatherBySearchItem(SearchItem searchItem, RequestCallback<Weather> requestCallback) {
-        remoteDataSource.requestWeather(searchItem.getName(), new RequestCallback<Weather>() {
+        remoteDataSource.requestWeather(searchItem.getUrl(), new RequestCallback<Weather>() {
             @Override
             public void onSuccess(Weather weather) {
                 simpleExecutor.lunchOn(SimpleExecutor.LunchOn.DB, () -> {
-                    weather.setId(weather.hashCode());
-                    List<Weather> savedWeathers = localDataSource.getSavedWeathersSync();
-                    boolean contains = weatherSaved(savedWeathers, weather);
-                    if (!contains) {
-                        int maxIndex = localDataSource.maxIndex() + 1;
-                        weather.setOrdering(maxIndex);
-                    }
+                    weather.setId(searchItem.getId().intValue());
+                    int maxIndex = localDataSource.maxIndex() + 1;
+                    weather.setOrdering(maxIndex);
                     localDataSource.insertWeather(weather);
                     simpleExecutor.lunchOn(SimpleExecutor.LunchOn.UI, () -> requestCallback.onSuccess(weather));
                 });
-
             }
 
             @Override
@@ -79,27 +67,18 @@ public class WeatherRepository {
         });
     }
 
-    private boolean weatherSaved(List<Weather> savedWeathers, Weather item) {
-        for (Weather savedWeather : savedWeathers) {
-            if (savedWeather.getId() == item.getId()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public void refreshSavedWeathers(RequestCallback requestCallback) {
+    public void refreshSavedWeathers(RequestCallback<List<Weather>> requestCallback) {
         simpleExecutor.lunchOn(SimpleExecutor.LunchOn.NETWORK, () -> {
             List<Weather> weathers = localDataSource.getSavedWeathersSync();
             for (Weather weather : weathers) {
                 Weather newWeather = remoteDataSource.requestWeather(weather.getLocation().getName());
-                newWeather.setId(weather.getId());
-                newWeather.setOrdering(weather.getOrdering());
-                localDataSource.insertWeather(newWeather);
+                if (newWeather != null) {
+                    newWeather.setId(weather.getId());
+                    newWeather.setOrdering(weather.getOrdering());
+                    localDataSource.insertWeather(newWeather);
+                }
             }
-            simpleExecutor.lunchOn(SimpleExecutor.LunchOn.UI, () -> {
-                requestCallback.onSuccess(null);
-            });
+            simpleExecutor.lunchOn(SimpleExecutor.LunchOn.UI, () -> requestCallback.onSuccess(weathers));
         });
     }
 

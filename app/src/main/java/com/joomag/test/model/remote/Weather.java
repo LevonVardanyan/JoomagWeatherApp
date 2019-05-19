@@ -5,7 +5,6 @@ import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
 import androidx.room.Embedded;
 import androidx.room.Entity;
-import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
 @Entity(tableName = "saved_weathers_table")
@@ -36,9 +35,6 @@ public class Weather {
         this.location = location;
     }
 
-    public int getId() {
-        return id;
-    }
 
     public int getOrdering() {
         return ordering;
@@ -48,15 +44,13 @@ public class Weather {
         this.ordering = ordering;
     }
 
+    public int getId() {
+        return id;
+    }
+
     public void setId(int id) {
         this.id = id;
     }
-
-    @Override
-    public int hashCode() {
-        return ObjectsCompat.hash(location.getCountry(), location.getRegion(), location.getLat(), location.getLon(), location.getTzId());
-    }
-
 
     @Override
     public boolean equals(@Nullable Object obj) {

@@ -1,7 +1,5 @@
 package com.joomag.test.datasource.local;
 
-import android.content.Context;
-
 import androidx.lifecycle.LiveData;
 import androidx.room.Transaction;
 
@@ -11,28 +9,20 @@ import com.joomag.test.util.SimpleExecutor;
 
 import java.util.List;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+
+@Singleton
 public class RoomLocalDataSource implements LocalDataSource {
-    private static RoomLocalDataSource roomLocalDataSource;
     private WeatherDao weatherDao;
     private SimpleExecutor simpleExecutor;
 
-    public static RoomLocalDataSource getInstance(Context context) {
-        if (roomLocalDataSource == null) {
-            synchronized (RoomLocalDataSource.class) {
-                if (roomLocalDataSource == null) {
-                    roomLocalDataSource = new RoomLocalDataSource(context);
-                }
-            }
-        }
-        return roomLocalDataSource;
+    @Inject
+    RoomLocalDataSource(WeatherDao weatherDao, SimpleExecutor simpleExecutor) {
+        this.weatherDao = weatherDao;
+        this.simpleExecutor = simpleExecutor;
     }
-
-    private RoomLocalDataSource(Context context) {
-        weatherDao = WeatherDataBase.getInstance(context).getWeatherDao();
-        simpleExecutor = SimpleExecutor.getInstance();
-    }
-
 
     @Override
     public LiveData<List<Weather>> getSavedWeathers() {
@@ -51,9 +41,7 @@ public class RoomLocalDataSource implements LocalDataSource {
 
     @Override
     public void insertWeather(Weather weather) {
-        simpleExecutor.lunchOn(SimpleExecutor.LunchOn.DB, () -> {
-            weatherDao.insert(weather);
-        });
+        simpleExecutor.lunchOn(SimpleExecutor.LunchOn.DB, () -> weatherDao.insert(weather));
     }
 
     @Override
@@ -81,9 +69,7 @@ public class RoomLocalDataSource implements LocalDataSource {
 
     @Override
     public void removeItems(List<Integer> removingItemIds) {
-        simpleExecutor.lunchOn(SimpleExecutor.LunchOn.DB, () -> {
-            removeList(removingItemIds);
-        });
+        simpleExecutor.lunchOn(SimpleExecutor.LunchOn.DB, () -> removeList(removingItemIds));
     }
 
 

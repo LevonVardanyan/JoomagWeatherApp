@@ -3,6 +3,7 @@ package com.joomag.test.screen.home;
 import android.app.Application;
 import android.os.Handler;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.databinding.ObservableBoolean;
@@ -15,6 +16,7 @@ import com.joomag.test.callback.RequestCallback;
 import com.joomag.test.model.remote.SearchItem;
 import com.joomag.test.model.remote.Weather;
 import com.joomag.test.repository.WeatherRepository;
+import com.joomag.test.util.Utils;
 
 import java.util.List;
 
@@ -37,8 +39,13 @@ public class HomeViewModel extends AndroidViewModel {
         @Override
         public void run() {
             if (!currentQuery.equals(lastRequestedQuery)) {
+                if (!Utils.checkInternetConnection(getApplication().getApplicationContext())) {
+                    showMessage(true, getApplication().getApplicationContext().getString(R.string.no_internet));
+                    return;
+                }
                 isProgressShowing.set(true);
                 isShowMessageView.set(false);
+                showMessage(false, "");
                 weatherRepository.search(currentQuery, new RequestCallback<List<SearchItem>>() {
                     @Override
                     public void onSuccess(List<SearchItem> response) {
@@ -58,6 +65,7 @@ public class HomeViewModel extends AndroidViewModel {
             }
         }
     };
+
 
     public HomeViewModel(@NonNull Application application, WeatherRepository weatherRepository) {
         super(application);
@@ -131,12 +139,16 @@ public class HomeViewModel extends AndroidViewModel {
     }
 
     void requestWeatherAndSave(SearchItem searchItem) {
+        if (!Utils.checkInternetConnection(getApplication().getApplicationContext())) {
+            Toast.makeText(getApplication().getApplicationContext(), R.string.no_internet, Toast.LENGTH_SHORT).show();
+            return;
+        }
         isProgressShowing.set(true);
         weatherRepository.requestWeatherBySearchItem(searchItem, new RequestCallback<Weather>() {
             @Override
             public void onSuccess(Weather response) {
                 isProgressShowing.set(false);
-                handler.postDelayed(() -> itemAdded.setValue(true), 100);
+                handler.postDelayed(() -> itemAdded.setValue(true), 500);
             }
 
             @Override
@@ -147,9 +159,14 @@ public class HomeViewModel extends AndroidViewModel {
     }
 
     void refreshSavedWeathers() {
-        weatherRepository.refreshSavedWeathers(new RequestCallback() {
+        if (!Utils.checkInternetConnection(getApplication().getApplicationContext())) {
+            Toast.makeText(getApplication().getApplicationContext(), R.string.no_internet, Toast.LENGTH_SHORT).show();
+            isRefreshing.setValue(false);
+            return;
+        }
+        weatherRepository.refreshSavedWeathers(new RequestCallback<List<Weather>>() {
             @Override
-            public void onSuccess(Object response) {
+            public void onSuccess(List<Weather> response) {
                 isRefreshing.setValue(false);
             }
 
@@ -164,11 +181,11 @@ public class HomeViewModel extends AndroidViewModel {
         weatherRepository.removeSavedWeather(weather);
     }
 
-    public void swapItems(int fromId, int toId) {
+    void swapItems(int fromId, int toId) {
         weatherRepository.swapItems(fromId, toId);
     }
 
-    public void removeSelectedItems(List<Integer> removingItemIds) {
+    void removeSelectedItems(List<Integer> removingItemIds) {
         weatherRepository.removeItems(removingItemIds);
 
     }

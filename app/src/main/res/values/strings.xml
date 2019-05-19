@@ -7,6 +7,7 @@
     <string name="current_temp_preview">%d°</string>
     <string name="wind">Wind speed %.0f mph, Dir. %s</string>
     <string name="wind_speed_kph">%.0f mph</string>
-    <string name="updated">Updated at</string>
+    <string name="updated">Updated at %s</string>
     <string name="select_items_for_remove">Select items for remove</string>
+    <string name="no_internet">No internet connection</string>
 </resources>

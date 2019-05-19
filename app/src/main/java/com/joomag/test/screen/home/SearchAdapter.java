@@ -7,18 +7,22 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.joomag.test.databinding.SearchItemBinding;
+import com.joomag.test.di.FragmentScoped;
 import com.joomag.test.model.remote.SearchItem;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+
+@FragmentScoped
 public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchViewHolder> {
 
-    private List<SearchItem> items;
+    @Inject
+    List<SearchItem> items;
     private OnItemClickListener onItemClickListener;
 
+    @Inject
     SearchAdapter() {
-        items = new ArrayList<>(0);
     }
 
     void setItems(List<SearchItem> items) {

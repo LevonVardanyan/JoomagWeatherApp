@@ -8,27 +8,20 @@ import androidx.annotation.NonNull;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 /**
  * Executor class provides the different executors e.g UI, DB, NETWORK
  */
+@Singleton
 public class SimpleExecutor {
-    private static SimpleExecutor simpleExecutor;
     private Executor networkExecutor;
     private Executor dbExecutor;
     private Executor uiExecutor;
 
-    public static SimpleExecutor getInstance() {
-        if (simpleExecutor == null) {
-            synchronized (SimpleExecutor.class) {
-                if (simpleExecutor == null) {
-                    simpleExecutor = new SimpleExecutor();
-                }
-            }
-        }
-        return simpleExecutor;
-    }
-
-    private SimpleExecutor() {
+    @Inject
+    SimpleExecutor() {
         networkExecutor = Executors.newFixedThreadPool(20);
         dbExecutor = Executors.newFixedThreadPool(20);
         uiExecutor = new MainThreadExecutor();

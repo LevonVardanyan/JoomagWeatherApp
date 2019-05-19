@@ -1,7 +1,6 @@
 package com.joomag.test.datasource.remote;
 
 
-import com.joomag.test.model.remote.Forecast;
 import com.joomag.test.model.remote.SearchItem;
 import com.joomag.test.model.remote.Weather;
 
@@ -17,13 +16,10 @@ import retrofit2.http.Query;
 public interface ApiService {
 
 
-    @GET(RequestConstants.CURENT)
+    @GET(RequestConstants.CURRENT)
     Call<Weather> getCurrentWeather(@Query("key") String apiKey, @Query("q") String query);
 
     @GET(RequestConstants.SEARCH)
     Call<List<SearchItem>> search(@Query("key") String apiKey, @Query("q") String query);
-
-    @GET(RequestConstants.FORECAST)
-    Call<Forecast> getForecast(@Query("key") String apiKey, @Query("q") String query, @Query("days") int daysCount);
 
 }

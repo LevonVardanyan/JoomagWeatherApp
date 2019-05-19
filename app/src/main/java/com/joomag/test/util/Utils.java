@@ -1,5 +1,8 @@
 package com.joomag.test.util;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.text.format.DateFormat;
 
 import java.text.ParseException;
@@ -19,9 +22,16 @@ public class Utils {
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
         String hours = (String) DateFormat.format("HH", date);
-        String minuts = (String) DateFormat.format("mm", date);
+        String minutes = (String) DateFormat.format("mm", date);
         String aa = (String) DateFormat.format("aa", date);
 
-        return hours + ":" + minuts + " " + aa;
+        return hours + ":" + minutes + " " + aa;
+    }
+
+    public static boolean checkInternetConnection(Context context) {
+        ConnectivityManager connectivityManager = (ConnectivityManager)
+                context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+        return networkInfo != null && networkInfo.isConnected();
     }
 }

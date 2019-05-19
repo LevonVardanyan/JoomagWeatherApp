@@ -1,8 +1,6 @@
 package com.joomag.test.screen.home;
 
-import android.content.Context;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -11,32 +9,29 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.joomag.test.R;
 import com.joomag.test.callback.WeathersDiffCallback;
 import com.joomag.test.databinding.WeatherCardBinding;
+import com.joomag.test.di.FragmentScoped;
 import com.joomag.test.model.remote.Weather;
 import com.joomag.test.util.Constants;
-import com.joomag.test.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.WeatherViewHolder> {
-    private List<Weather> items;
+import javax.inject.Inject;
 
-    private List<Integer> selectedItemIds;
+@FragmentScoped
+public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.WeatherViewHolder> {
+    @Inject
+    List<Weather> items;
+
+    @Inject
+    List<Integer> selectedItemIds;
 
     private boolean selectionMode;
 
-    private OnItemClickListener onItemClickListener;
-
+    @Inject
     WeathersAdapter() {
-        items = new ArrayList<>();
-        selectedItemIds = new ArrayList<>();
-    }
-
-    void setOnItemClickListener(OnItemClickListener onItemClickListener) {
-        this.onItemClickListener = onItemClickListener;
     }
 
     void setSelectionMode(boolean selectionMode) {
@@ -62,14 +57,10 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
         WeatherCardBinding binding = WeatherCardBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
         WeatherViewHolder weatherViewHolder = new WeatherViewHolder(binding);
         binding.root.setOnClickListener(v -> {
-            if (!selectionMode) {
-                if (onItemClickListener != null) {
-                    onItemClickListener.onWeatherItemClick(items.get(weatherViewHolder.getAdapterPosition()), v);
-                }
-            } else {
+            if (selectionMode) {
                 Weather weather = items.get(weatherViewHolder.getAdapterPosition());
                 if (selectedItemIds.contains(weather.getId())) {
-                    selectedItemIds.remove(weather.getId());
+                    selectedItemIds.remove(Integer.valueOf(weather.getId()));
                 } else {
                     selectedItemIds.add(weather.getId());
                 }
@@ -83,16 +74,11 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
     public void onBindViewHolder(@NonNull WeatherViewHolder holder, int position) {
         int adapterPos = holder.getAdapterPosition();
         Weather weather = items.get(adapterPos);
-        Context context = holder.binding.getRoot().getContext();
         ViewCompat.setTransitionName(holder.binding.root, Constants.TRANSITION_NAME_PREFIX + adapterPos);
-        Glide.with(context).load("https:" + weather.getCurrent().getCondition().getIcon()).into(holder.binding.icon);
-        holder.binding.name.setText(weather.getLocation().getName());
-        holder.binding.updateDate.setText(context.getString(R.string.updated) + " " + Utils.getHourPreviewWithNames(weather.getCurrent().getLastUpdated()));
-        holder.binding.description.setText(weather.getCurrent().getCondition().getText());
-        holder.binding.currentTemp.setText(context.getString(R.string.current_temp_preview, weather.getCurrent().getTempC().intValue()));
-        holder.binding.windInfo.setText(context.getString(R.string.wind, weather.getCurrent().getWindMph(), weather.getCurrent().getWindDir()));
-
-        holder.binding.itemSelectedMask.setVisibility(selectedItemIds.contains(weather.getId()) ? View.VISIBLE : View.GONE);
+        Glide.with(holder.binding.getRoot().getContext()).load("https:" + weather.getCurrent()
+                .getCondition().getIcon()).into(holder.binding.icon);
+        holder.binding.setWeather(weather);
+        holder.binding.setItemMaskVisible(selectedItemIds.contains(weather.getId()));
     }
 
     @Override
@@ -124,7 +110,4 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
         }
     }
 
-    interface OnItemClickListener {
-        void onWeatherItemClick(Weather weather, View sharedViews);
-    }
 }

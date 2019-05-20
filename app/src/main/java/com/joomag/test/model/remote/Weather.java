@@ -18,6 +18,7 @@ public class Weather {
     private Location location;
 
     private int ordering;
+    private String uniqueQuery;
 
     public Current getCurrent() {
         return current;
@@ -50,6 +51,14 @@ public class Weather {
 
     public void setId(int id) {
         this.id = id;
+    }
+
+    public String getUniqueQuery() {
+        return uniqueQuery;
+    }
+
+    public void setUniqueQuery(String uniqueQuery) {
+        this.uniqueQuery = uniqueQuery;
     }
 
     @Override

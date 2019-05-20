@@ -55,6 +55,7 @@ public class WeatherRepository {
                     weather.setId(searchItem.getId().intValue());
                     int maxIndex = localDataSource.maxIndex() + 1;
                     weather.setOrdering(maxIndex);
+                    weather.setUniqueQuery(searchItem.getUrl());
                     localDataSource.insertWeather(weather);
                     simpleExecutor.lunchOn(SimpleExecutor.LunchOn.UI, () -> requestCallback.onSuccess(weather));
                 });
@@ -71,10 +72,11 @@ public class WeatherRepository {
         simpleExecutor.lunchOn(SimpleExecutor.LunchOn.NETWORK, () -> {
             List<Weather> weathers = localDataSource.getSavedWeathersSync();
             for (Weather weather : weathers) {
-                Weather newWeather = remoteDataSource.requestWeather(weather.getLocation().getName());
+                Weather newWeather = remoteDataSource.requestWeather(weather.getUniqueQuery());
                 if (newWeather != null) {
                     newWeather.setId(weather.getId());
                     newWeather.setOrdering(weather.getOrdering());
+                    newWeather.setUniqueQuery(weather.getUniqueQuery());
                     localDataSource.insertWeather(newWeather);
                 }
             }

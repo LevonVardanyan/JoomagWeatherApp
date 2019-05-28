@@ -1,6 +1,7 @@
 package com.joomag.test.screen.home;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,7 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
 import androidx.databinding.DataBindingUtil;
+import androidx.databinding.ObservableBoolean;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -24,6 +26,7 @@ import com.joomag.test.databinding.HomeFragmentBinding;
 import com.joomag.test.di.AppComponent;
 import com.joomag.test.di.FragmentScoped;
 import com.joomag.test.model.remote.SearchItem;
+import com.joomag.test.util.Utils;
 
 import javax.inject.Inject;
 
@@ -31,12 +34,19 @@ import javax.inject.Inject;
 public class HomeFragment extends Fragment implements SearchView.OnQueryTextListener,
         SearchAdapter.OnItemClickListener, WeatherItemTouchCallback.WeatherItemTouchListener, View.OnClickListener {
 
+    private static final String EXTRA_IS_SEARCHING = "isSearching";
+    private static final String EXTRA_IS_MESSAGE_SHOWING = "isMessageShowing";
+    private static final String EXTRA_IS_SELECTION_MODE = "isSelectionMode";
+    static final String EXTRA_SELECTION_IDS = "selectedIds";
     private HomeFragmentBinding binding;
     private HomeViewModel homeViewModel;
     @Inject
     SearchAdapter searchAdapter;
     @Inject
     WeathersAdapter weathersAdapter;
+
+    private ObservableBoolean isSearching = new ObservableBoolean();
+    private ObservableBoolean isShowMessageView = new ObservableBoolean();
 
     public HomeFragment() {
     }
@@ -60,18 +70,31 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
         AppComponent appComponent = ((WeatherApplication) getActivity().getApplication()).getAppComponent();
         homeComponent.inject(this);
         homeViewModel = ViewModelProviders.of(this, appComponent.getWeatherViewModelFactory()).get(HomeViewModel.class);
+        if (savedInstanceState != null) {
+            isSearching.set(savedInstanceState.getBoolean(EXTRA_IS_SEARCHING));
+            isShowMessageView.set(savedInstanceState.getBoolean(EXTRA_IS_MESSAGE_SHOWING));
+            binding.setSelectionMode(savedInstanceState.getBoolean(EXTRA_IS_SELECTION_MODE));
+        }
 
-        binding.setIsSearching(homeViewModel.getIsProgressShowing());
-        binding.setShowMessageView(homeViewModel.getIsShowMessageView());
+        binding.setIsSearching(isSearching);
+        binding.setShowMessageView(isShowMessageView);
         setHasOptionsMenu(true);
         initActionBar();
 
         init();
         initSearchAdapter();
-        initWeathersAdapter();
+        initWeathersAdapter(savedInstanceState);
         setupObservers();
     }
 
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(EXTRA_IS_SEARCHING, isSearching.get());
+        outState.putBoolean(EXTRA_IS_MESSAGE_SHOWING, isShowMessageView.get());
+        outState.putBoolean(EXTRA_IS_SELECTION_MODE, weathersAdapter.isSelectionMode());
+        weathersAdapter.saveState(outState);
+    }
 
     private void init() {
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
@@ -83,7 +106,14 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
         binding.search.setMaxWidth(screenWidth - 2 * getResources().getDimensionPixelSize(R.dimen.search_view_margin)
                 - getResources().getDimensionPixelSize(R.dimen.remove_mode_btn_size));
 
-        binding.swipeRefresh.setOnRefreshListener(() -> homeViewModel.refreshSavedWeathers());
+        binding.swipeRefresh.setOnRefreshListener(() -> {
+            if (getContext() != null && !Utils.checkInternetConnection(getContext())) {
+                Toast.makeText(getContext(), R.string.no_internet, Toast.LENGTH_SHORT).show();
+                binding.swipeRefresh.setRefreshing(false);
+                return;
+            }
+            homeViewModel.refreshSavedWeathers();
+        });
     }
 
     private void initSearchAdapter() {
@@ -92,12 +122,18 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
         binding.searchRecyclerView.setAdapter(searchAdapter);
         homeViewModel.getSearchResultLiveData().observe(getViewLifecycleOwner(), searchItems -> {
             binding.searchRecyclerView.setVisibility(View.VISIBLE);
+            showMessage(searchItems.isEmpty(), getString(R.string.no_results));
             searchAdapter.setItems(searchItems);
+            isSearching.set(false);
         });
 
     }
 
-    private void initWeathersAdapter() {
+    private void initWeathersAdapter(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            weathersAdapter.setSelectedItemIds(savedInstanceState.getIntegerArrayList(EXTRA_SELECTION_IDS));
+            weathersAdapter.setSelectionMode(savedInstanceState.getBoolean(EXTRA_IS_SELECTION_MODE));
+        }
         binding.weathersRecyclerView.setAdapter(weathersAdapter);
         binding.weathersRecyclerView.setHasFixedSize(true);
         binding.weathersRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
@@ -107,13 +143,8 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
     }
 
     private void setupObservers() {
-        homeViewModel.getSearchQueryEmptyLiveData().observe(getViewLifecycleOwner(), isEmptyQuery -> {
-            binding.searchRecyclerView.setVisibility(isEmptyQuery ? View.GONE : View.VISIBLE);
-            binding.swipeRefresh.setVisibility(isEmptyQuery ? View.VISIBLE : View.GONE);
-        });
-        homeViewModel.getMessageLiveData().observe(getViewLifecycleOwner(), message -> binding.message.setText(message));
         homeViewModel.getSavedWeathersCountLiveData().observe(getViewLifecycleOwner(), savedWeathersCount ->
-                homeViewModel.showMessage(savedWeathersCount == 0, getString(R.string.no_saved_locations)));
+                showMessage(savedWeathersCount == 0, getString(R.string.no_saved_locations)));
         homeViewModel.getIsRefreshing().observe(getViewLifecycleOwner(), isRefreshing ->
                 binding.swipeRefresh.setRefreshing(isRefreshing));
         homeViewModel.getItemAdded().observe(getViewLifecycleOwner(), itemAdded -> {
@@ -136,14 +167,33 @@ public class HomeFragment extends Fragment implements SearchView.OnQueryTextList
 
     @Override
     public boolean onQueryTextSubmit(String query) {
-        homeViewModel.search(query);
+        search(query);
         return true;
     }
 
     @Override
     public boolean onQueryTextChange(String newText) {
-        homeViewModel.search(newText);
+        search(newText);
         return true;
+    }
+
+    private void search(String query) {
+        if (!Utils.checkInternetConnection(getContext())) {
+            showMessage(true, getString(R.string.no_internet));
+            return;
+        }
+        boolean isEmpty = TextUtils.isEmpty(query);
+        if (!isEmpty) {
+            homeViewModel.search(query);
+        }
+        binding.searchRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        binding.swipeRefresh.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        isSearching.set(!TextUtils.isEmpty(query));
+    }
+
+    private void showMessage(boolean show, String message) {
+        isShowMessageView.set(show);
+        binding.message.setText(message);
     }
 
     @Override

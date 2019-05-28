@@ -27,10 +27,7 @@ public class WeatherItemTouchCallback extends ItemTouchHelper.SimpleCallback {
         weatherItemTouchListener.onMove(fromPos, toPos);
     }
 
-    @Override
-    public int interpolateOutOfBoundsScroll(RecyclerView recyclerView, int viewSize, int viewSizeOutOfBounds, int totalSize, long msSinceStartScroll) {
-        return 0;
-    }
+
 
     @Override
     public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {

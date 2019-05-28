@@ -1,5 +1,6 @@
 package com.joomag.test.screen.home;
 
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -38,8 +39,20 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
         this.selectionMode = selectionMode;
         if (!selectionMode) {
             selectedItemIds.clear();
+            notifyDataSetChanged();
         }
-        notifyDataSetChanged();
+    }
+
+    boolean isSelectionMode() {
+        return selectionMode;
+    }
+
+    void saveState(Bundle bundle) {
+        bundle.putIntegerArrayList(HomeFragment.EXTRA_SELECTION_IDS, new ArrayList<>(selectedItemIds));
+    }
+
+    void setSelectedItemIds(List<Integer> selectedItemIds) {
+        this.selectedItemIds = selectedItemIds;
     }
 
     void setItems(List<Weather> items) {
@@ -58,13 +71,16 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
         WeatherViewHolder weatherViewHolder = new WeatherViewHolder(binding);
         binding.root.setOnClickListener(v -> {
             if (selectionMode) {
-                Weather weather = items.get(weatherViewHolder.getAdapterPosition());
-                if (selectedItemIds.contains(weather.getId())) {
-                    selectedItemIds.remove(Integer.valueOf(weather.getId()));
-                } else {
-                    selectedItemIds.add(weather.getId());
+                int pos = weatherViewHolder.getAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    Weather weather = items.get(weatherViewHolder.getAdapterPosition());
+                    if (selectedItemIds.contains(weather.getId())) {
+                        selectedItemIds.remove(Integer.valueOf(weather.getId()));
+                    } else {
+                        selectedItemIds.add(weather.getId());
+                    }
+                    notifyItemChanged(weatherViewHolder.getAdapterPosition());
                 }
-                notifyItemChanged(weatherViewHolder.getAdapterPosition());
             }
         });
         return weatherViewHolder;
@@ -73,12 +89,16 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
     @Override
     public void onBindViewHolder(@NonNull WeatherViewHolder holder, int position) {
         int adapterPos = holder.getAdapterPosition();
-        Weather weather = items.get(adapterPos);
-        ViewCompat.setTransitionName(holder.binding.root, Constants.TRANSITION_NAME_PREFIX + adapterPos);
-        Glide.with(holder.binding.getRoot().getContext()).load("https:" + weather.getCurrent()
-                .getCondition().getIcon()).into(holder.binding.icon);
-        holder.binding.setWeather(weather);
-        holder.binding.setItemMaskVisible(selectedItemIds.contains(weather.getId()));
+        if (adapterPos != RecyclerView.NO_POSITION) {
+            Weather weather = items.get(adapterPos);
+            ViewCompat.setTransitionName(holder.binding.root, Constants.TRANSITION_NAME_PREFIX + adapterPos);
+            Glide.with(holder.binding.getRoot().getContext()).load("https:" + weather.getCurrent()
+                    .getCondition().getIcon()).into(holder.binding.icon);
+            holder.binding.setWeather(weather);
+            if (selectedItemIds != null) {
+                holder.binding.setItemMaskVisible(selectedItemIds.contains(weather.getId()));
+            }
+        }
     }
 
     @Override
@@ -98,8 +118,7 @@ public class WeathersAdapter extends RecyclerView.Adapter<WeathersAdapter.Weathe
         return selectedItemIds.isEmpty();
     }
 
-    class WeatherViewHolder extends RecyclerView.ViewHolder {
-
+    static class WeatherViewHolder extends RecyclerView.ViewHolder {
         WeatherCardBinding binding;
 
         WeatherViewHolder(WeatherCardBinding binding) {

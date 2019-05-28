@@ -2,11 +2,9 @@ package com.joomag.test.screen.home;
 
 import android.app.Application;
 import android.os.Handler;
-import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.databinding.ObservableBoolean;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
@@ -24,13 +22,8 @@ public class HomeViewModel extends AndroidViewModel {
     private WeatherRepository weatherRepository;
 
     private MutableLiveData<List<SearchItem>> searchResultLiveData = new MutableLiveData<>();
-    private MutableLiveData<Boolean> searchQueryEmptyLiveData = new MutableLiveData<>();
     private MutableLiveData<Boolean> isRefreshing = new MutableLiveData<>();
     private MutableLiveData<Boolean> itemAdded = new MutableLiveData<>();
-
-    private ObservableBoolean isProgressShowing = new ObservableBoolean();
-    private MutableLiveData<String> messageLiveData = new MutableLiveData<>();
-    private ObservableBoolean isShowMessageView = new ObservableBoolean();
 
     private String currentQuery = "";
     private String lastRequestedQuery = "";
@@ -39,25 +32,14 @@ public class HomeViewModel extends AndroidViewModel {
         @Override
         public void run() {
             if (!currentQuery.equals(lastRequestedQuery)) {
-                if (!Utils.checkInternetConnection(getApplication().getApplicationContext())) {
-                    showMessage(true, getApplication().getApplicationContext().getString(R.string.no_internet));
-                    return;
-                }
-                isProgressShowing.set(true);
-                isShowMessageView.set(false);
-                showMessage(false, "");
                 weatherRepository.search(currentQuery, new RequestCallback<List<SearchItem>>() {
                     @Override
                     public void onSuccess(List<SearchItem> response) {
-                        isProgressShowing.set(false);
-                        showMessage(response.isEmpty(), getApplication().getApplicationContext().getString(R.string.no_results));
                         searchResultLiveData.setValue(response);
                     }
 
                     @Override
                     public void onFail(String error) {
-                        isProgressShowing.set(false);
-
 
                     }
                 });
@@ -73,60 +55,20 @@ public class HomeViewModel extends AndroidViewModel {
     }
 
     void search(String query) {
-        if (!TextUtils.isEmpty(query)) {
-            handler.removeCallbacks(searchRunnable);
-            currentQuery = query;
-            handler.postDelayed(searchRunnable, 400);
-        } else {
-            checkForEmptySavedWeathersCount();
-        }
-        searchQueryEmptyLiveData.setValue(TextUtils.isEmpty(query));
-    }
-
-    void showMessage(boolean show, String message) {
-        isShowMessageView.set(show);
-        messageLiveData.setValue(message);
+        handler.removeCallbacks(searchRunnable);
+        currentQuery = query;
+        handler.postDelayed(searchRunnable, 400);
     }
 
     LiveData<Integer> getSavedWeathersCountLiveData() {
         return weatherRepository.getSavedWeathersCountLiveData();
     }
 
-    private void checkForEmptySavedWeathersCount() {
-        weatherRepository.getSavedWeathersCount(new RequestCallback<Integer>() {
-            @Override
-            public void onSuccess(Integer response) {
-                showMessage(response == 0, getApplication().getApplicationContext().getString(R.string.no_saved_locations));
-            }
-
-            @Override
-            public void onFail(String error) {
-
-            }
-        });
-    }
-
-    ObservableBoolean getIsProgressShowing() {
-        return isProgressShowing;
-    }
-
-    MutableLiveData<String> getMessageLiveData() {
-        return messageLiveData;
-    }
-
-    ObservableBoolean getIsShowMessageView() {
-        return isShowMessageView;
-    }
-
-    MutableLiveData<List<SearchItem>> getSearchResultLiveData() {
+    LiveData<List<SearchItem>> getSearchResultLiveData() {
         return searchResultLiveData;
     }
 
-    MutableLiveData<Boolean> getSearchQueryEmptyLiveData() {
-        return searchQueryEmptyLiveData;
-    }
-
-    MutableLiveData<Boolean> getIsRefreshing() {
+    LiveData<Boolean> getIsRefreshing() {
         return isRefreshing;
     }
 
@@ -134,7 +76,7 @@ public class HomeViewModel extends AndroidViewModel {
         return weatherRepository.getSavedWeathers();
     }
 
-    MutableLiveData<Boolean> getItemAdded() {
+    LiveData<Boolean> getItemAdded() {
         return itemAdded;
     }
 
@@ -143,27 +85,19 @@ public class HomeViewModel extends AndroidViewModel {
             Toast.makeText(getApplication().getApplicationContext(), R.string.no_internet, Toast.LENGTH_SHORT).show();
             return;
         }
-        isProgressShowing.set(true);
         weatherRepository.requestWeatherBySearchItem(searchItem, new RequestCallback<Weather>() {
             @Override
             public void onSuccess(Weather response) {
-                isProgressShowing.set(false);
                 handler.postDelayed(() -> itemAdded.setValue(true), 500);
             }
 
             @Override
             public void onFail(String error) {
-                isProgressShowing.set(false);
             }
         });
     }
 
     void refreshSavedWeathers() {
-        if (!Utils.checkInternetConnection(getApplication().getApplicationContext())) {
-            Toast.makeText(getApplication().getApplicationContext(), R.string.no_internet, Toast.LENGTH_SHORT).show();
-            isRefreshing.setValue(false);
-            return;
-        }
         weatherRepository.refreshSavedWeathers(new RequestCallback<List<Weather>>() {
             @Override
             public void onSuccess(List<Weather> response) {
